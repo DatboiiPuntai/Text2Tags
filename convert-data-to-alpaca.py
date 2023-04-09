@@ -1,8 +1,8 @@
 import json
 import os
 
-DATASET_FILENAME = 'test_data.json'
-DATASET_PATH = 'test_dataset'
+DATASET_FILENAME = 'train_data.json'
+DATASET_PATH = 'small_dataset'
 INSTRUCTION = 'Write a highly descriptive and objective caption for an anime illustration using the given danbooru tags.'
 
 with open(os.path.join(DATASET_PATH,DATASET_FILENAME), encoding='utf-8') as f:
@@ -15,8 +15,6 @@ alpaca_dataset = [{
     "input": x['tags'],
     "output": x['caption']} 
     for x in dataset]
-
-print(alpaca_dataset[0])
 
 json_object = json.dumps(alpaca_dataset, indent=4)
 
