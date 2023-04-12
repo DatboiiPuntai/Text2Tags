@@ -7,7 +7,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
 
 POST_URL_TEMPLATE = "https://danbooru.donmai.us/posts/{id}"
-SEARCH_URL_TEMPLATE = "https://danbooru.donmai.us/posts?page={page}&tags={tags}"
 
 MAX_THREADS = 12
 DATA_FILE = "tag_data_danbooru.json"
