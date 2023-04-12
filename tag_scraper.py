@@ -11,10 +11,10 @@ SEARCH_URL_TEMPLATE = (
 
 MAX_THREADS = 50
 DATA_FILE = 'tag_data.json'
-NUM_PAGES = 250 # each page has 40 posts
+NUM_PAGES = 5 # each page has 40 posts
 
 def main():
-    print(f'Scraping tags from {NUM_PAGES * 40} images from safebooru')
+    print(f'Scraping tags from {NUM_PAGES * 40} image tags from safebooru')
     data = scrape(tags=["-tagme"], num_pages=NUM_PAGES)
     with open(DATA_FILE,'w') as outfile:
         json.dump(data, outfile, indent=4)
@@ -111,6 +111,7 @@ def get_tags_from_url(url) -> dict:
     metadata_tags = get_tags_from_class(soup, "tag-type-metadata tag")
 
     return_dict = {
+        "id": int(url.split('&id=')[-1]),
         "copyright": copyright_tags,
         "character": character_tags,
         "artist": artist_tags,
@@ -143,35 +144,6 @@ def get_ids_multithread(urls: list[str]) -> list[str]:
 
 
 def get_tags_multithread(urls: list[str]) -> list[dict]:
-    """
-    Given a list of urls, returns a list of dictionaries containing tags associated with each post.
-
-    Args:
-    urls (list[str]): A list of urls to search for the tags.
-
-    Returns:
-    A list of dictionaries, where each dictionary contains tags associated with a single post. Each dictionary has keys 'copyright',
-    'character', 'artist', 'general', and 'metadata', where each key maps to a list of tags associated with the post.
-
-    Example:
-    >>> urls = ['https://example.com/post/4326735', 'https://example.com/post/4357947', 'https://example.com/post/4361438']
-    >>> print(get_tags_multithread(urls))
-    [{'copyright': [],
-      'character': ['Alice', 'Bob'],
-      'artist': ['artistA'],
-      'general': ['example', 'artwork'],
-      'metadata': []},
-     {'copyright': ['among us 2 electric boogaloo],
-      'character': ['Eve'],
-      'artist': ['artistB'],
-      'general': ['example', 'illustration'],
-      'metadata': []},
-     {'copyright': [],
-      'character': ['Charlie'],
-      'artist': ['artistC'],
-      'general': ['example', 'drawing'],
-      'metadata': []}]
-    """
     threads = min(MAX_THREADS, len(urls))
     with ThreadPoolExecutor(max_workers=threads) as executor:
         tags_list = executor.map(get_tags_from_url, urls)
