@@ -1,67 +1,95 @@
 from bs4 import BeautifulSoup
 import requests
-from concurrent.futures import ThreadPoolExecutor
-from itertools import chain
+import time
+import random
+import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
 
 POST_URL_TEMPLATE = "https://danbooru.donmai.us/posts/{id}"
-SEARCH_URL_TEMPLATE = (
-    "https://danbooru.donmai.us/posts?page={page}&tags={tags}"
-)
+SEARCH_URL_TEMPLATE = "https://danbooru.donmai.us/posts?page={page}&tags={tags}"
 
-MAX_THREADS = 20
-DATA_FILE = 'tag_data.json'
-NUM_PAGES = 250 # each page has 20 images
+MAX_THREADS = 12
+DATA_FILE = "tag_data_danbooru.json"
+NUM_IMAGES = 10000  # each page has 20 images
+
 
 def main():
-    print(f'Scraping tags from {NUM_PAGES * 20} image tags from safebooru')
-    data = scrape(tags=["-tagme"], num_pages=NUM_PAGES)
-    with open(DATA_FILE,'w') as outfile:
+    print(f'Scraping tags from {NUM_IMAGES} random images on danbooru')
+    urls = generate_urls(NUM_IMAGES, lower=3000000)
+    data = make_data(urls)
+    with open(DATA_FILE, "w") as outfile:
         json.dump(data, outfile, indent=4)
-    
 
-def get_ids_from_url(url: str) -> list[str]:
+
+def has_picture_tag(url: str) -> bool:
     """
-    Returns a list of post ids found in the given url's html content
+    Checks if the given URL contains a '<picture>' tag in its HTML response.
 
     Args:
-    url(str): The url to search
+        url (str): The URL to check.
 
     Returns:
-    list: A list of post ids
-
-    Example usage:
-    url = SEARCH_URL_TEMPLATE.format(tags='-tagme',pid=0)
-    print(get_ids_from_url(url))
+        bool: True if the URL contains a '<picture>' tag in its HTML response, False otherwise.
     """
     response = requests.get(url)
-    html_content = response.content
-    soup = BeautifulSoup(html_content, "lxml")
-    # Find all span elements with class "thumb", then get their "id" attribute (skipping the first character), which is the post ID
-    span_elements = (
-        soup.find("div", {"id": "content"})
-        .find_all("div")[0]
-        .find_all("span", {"class": "thumb"})
-    )
-    return [span.get("id")[1:] for span in span_elements]
+    pattern = re.compile(r"<picture>")
+    return bool(pattern.search(response.text))
 
 
-def get_urls_from_tags(tag_list: list[str], num_pages=10) -> list[str]:
+def generate_url(lower: int, upper: int) -> str:
     """
-    Given a list of tags and the number of pages to search, return a list of urls to search for images on safebooru.org.
+    Generates a single valid image URL from the Danbooru image board.
 
     Args:
-    - tag_list (list[str]): A list of tags to search for.
-    - num_pages (int): The number of pages to search.
+        lower (int): The lower bound for the post ID.
+        upper (int): The upper bound for the post ID.
 
     Returns:
-    - A list of urls to search for images on safebooru.org.
-
-    Example usage:
-    print(get_urls_from_tags(['-tagme', 'virtual_youtuber'])[1])
+        str: A valid image URL.
     """
-    tags = "+".join(tag_list)
-    return [SEARCH_URL_TEMPLATE.format(tags=tags, page=i) for i in range(num_pages)]
+
+    url = POST_URL_TEMPLATE.format(id=random.randint(lower, upper))
+    if has_picture_tag(url):
+        return url
+
+    return None
+
+
+def generate_urls(n: int, lower=1, upper=6219831) -> list[str]:
+    """
+    Generates a list of n valid image URLs from the Danbooru image board.
+
+    Args:
+        n (int): The number of URLs to generate.
+        lower (int, optional): The lower bound for the post ID. Defaults to 1.
+        upper (int, optional): The upper bound for the post ID. Defaults to 6219831.
+
+    Returns:
+        list[str]: A list of n valid image URLs.
+    """
+    url_list = []
+    while len(url_list) < n:
+        max_workers = min(n - len(url_list), MAX_THREADS)
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_url = {
+                executor.submit(generate_url, lower, upper): None for _ in range(n)
+            }
+
+            for future in as_completed(future_to_url):
+                url = future.result()
+                if url is not None:
+                    url_list.append(url)
+                    if len(url_list) >= n:
+                        break
+
+    return url_list
+
+
+# start_time = time.time()
+# urls = generate_urls(1000, 3000000)
+# end_time = time.time()
+# print(f"Generated {len(urls)} URLs in {end_time - start_time} seconds.")
 
 
 def get_tags_from_class(soup, tag_class) -> list[str]:
@@ -76,89 +104,81 @@ def get_tags_from_class(soup, tag_class) -> list[str]:
     Returns:
         list: A list of BeautifulSoup tag objects with the given class name.
     """
-    lists = soup.find_all("li", {"class": tag_class})
-    return [li.find("a").text for li in lists]
+    tag_list = soup.find("ul", {"class": tag_class})
+    if tag_list:
+        return list(map(lambda n: n.attrs["data-tag-name"], tag_list.find_all("li")))
+    else:
+        return []
 
 
-
-def get_url_from_id(id) -> str:
-    return POST_URL_TEMPLATE.format(id=id)
-
-
-def get_tags_from_url(url) -> dict:
+def get_data_from_url(url: str) -> dict:
     """
-    Given a post url, return a dictionary of tags associated with the post.
+    This function takes a URL string as input and returns a dictionary containing various data obtained from the Danbooru post located at the input URL.
 
-    Args:
-        url (str): The url of the post to scrape.
+    Parameters:
+    url (str): A string containing the URL of the webpage to be scraped.
 
     Returns:
-        dict: A dictionary with keys 'copyright', 'character', 'artist',
-            'general', and 'metadata', where each key maps to a list of tags
-            associated with the post.
-
-    Example usage:
-    url = POST_URL_TEMPLATE.format(id=4326735)
-    print(get_tags_from_url(url))
+    dict: A dictionary containing various data obtained from the webpage located at the input URL. The keys in the dictionary are:
+        - id: An integer ID extracted from the input URL.
+        - artist: A list of strings containing the names of artists associated with the content on the webpage.
+        - copyright: A list of strings containing any copyright information associated with the content on the webpage.
+        - character: A list of strings containing the names of characters associated with the content on the webpage.
+        - general: A list of strings containing any general tags associated with the content on the webpage.
+        - metadata: A list of strings containing any metadata associated with the content on the webpage.
+        - rating: A string containing the rating associated with the content on the webpage.
     """
     response = requests.get(url)
     html_content = response.content
     soup = BeautifulSoup(html_content, "lxml")
 
-    copyright_tags = get_tags_from_class(soup, "tag-type-copyright tag")
-    character_tags = get_tags_from_class(soup, "tag-type-character tag")
-    artist_tags = get_tags_from_class(soup, "tag-type-artist tag")
-    general_tags = get_tags_from_class(soup, "tag-type-general tag")
-    metadata_tags = get_tags_from_class(soup, "tag-type-metadata tag")
+    artist_tags = get_tags_from_class(soup, "artist-tag-list")
+    copyright_tags = get_tags_from_class(soup, "copyright-tag-list")
+    character_tags = get_tags_from_class(soup, "character-tag-list")
+    general_tags = get_tags_from_class(soup, "general-tag-list")
+    metadata_tags = get_tags_from_class(soup, "meta-tag-list")
+
+    id = int(url.split("/")[-1])
+    rating = soup.find("li", {"id": "post-info-rating"}).text.split(" ")[-1]
 
     return_dict = {
-        "id": int(url.split('&id=')[-1]),
+        "id": id,
         "copyright": copyright_tags,
         "character": character_tags,
         "artist": artist_tags,
         "general": general_tags,
         "metadata": metadata_tags,
-    }
 
+        "rating": rating,
+    }
     return return_dict
 
 
-def get_ids_multithread(urls: list[str]) -> list[str]:
-    """
-    Returns a single flat list of post ids found in the given urls' html content,
-    utilizing multithreading to improve performance.
+# print(get_data_from_url("https://danbooru.donmai.us/posts/3053048"))
 
-    Args:
-    - urls (list[str]): A list of urls to search for post ids.
+
+def make_data(urls: list[str]) -> list[dict]:
+    """
+    This function takes a list of URLs as input and returns a list of dictionaries containing data obtained by scraping danbooru for each URL in the input list.
+
+    Parameters:
+    urls (list[str]): A list of strings containing the URLs of the danbooru webpages to be scraped.
 
     Returns:
-    - A list of post ids found in the given urls' html content.
-
-    Example usage:
-    urls = get_urls_from_tags(['-tagme', 'virtual_youtuber'])
-    print(get_ids_multithread(urls))
+    list[dict]: A list of dictionaries containing various data obtained from each danbooru webpage in the input list. Each dictionary in the list corresponds to a single webpage and contains the following keys:
+        - id: An integer ID extracted from the URL of the webpage.
+        - artist: A list of strings containing the names of artists associated with the content on the webpage.
+        - copyright: A list of strings containing any copyright information associated with the content on the webpage.
+        - character: A list of strings containing the names of characters associated with the content on the webpage.
+        - general: A list of strings containing any general tags associated with the content on the webpage.
+        - metadata: A list of strings containing any metadata associated with the content on the webpage.
+        - rating: A string containing the rating associated with the content on the webpage.
     """
     threads = min(MAX_THREADS, len(urls))
     with ThreadPoolExecutor(max_workers=threads) as executor:
-        ids_lists = executor.map(get_ids_from_url, urls)
-    return list(chain.from_iterable(ids_lists))
+        data = executor.map(get_data_from_url, urls)
+    return list(data)
 
-
-def get_tags_multithread(urls: list[str]) -> list[dict]:
-    threads = min(MAX_THREADS, len(urls))
-    with ThreadPoolExecutor(max_workers=threads) as executor:
-        tags_list = executor.map(get_tags_from_url, urls)
-    return list(tags_list)
-
-
-def scrape(tags: list[str], num_pages: int):
-    urls = get_urls_from_tags(tags, num_pages)
-    ids = get_ids_multithread(urls)
-    post_urls = list(map(get_url_from_id, ids))
-    data = get_tags_multithread(post_urls)
-    return data
 
 if __name__ == "__main__":
     main()
-
-
