@@ -4,17 +4,17 @@ from concurrent.futures import ThreadPoolExecutor
 from itertools import chain
 import json
 
-POST_URL_TEMPLATE = "https://safebooru.org/index.php?page=post&s=view&id={id}"
+POST_URL_TEMPLATE = "https://danbooru.donmai.us/posts/{id}"
 SEARCH_URL_TEMPLATE = (
-    "https://safebooru.org/index.php?page=post&s=list&tags={tags}&pid={pid}"
+    "https://danbooru.donmai.us/posts?page={page}&tags={tags}"
 )
 
-MAX_THREADS = 50
+MAX_THREADS = 20
 DATA_FILE = 'tag_data.json'
-NUM_PAGES = 5 # each page has 40 posts
+NUM_PAGES = 250 # each page has 20 images
 
 def main():
-    print(f'Scraping tags from {NUM_PAGES * 40} image tags from safebooru')
+    print(f'Scraping tags from {NUM_PAGES * 20} image tags from safebooru')
     data = scrape(tags=["-tagme"], num_pages=NUM_PAGES)
     with open(DATA_FILE,'w') as outfile:
         json.dump(data, outfile, indent=4)
@@ -61,7 +61,7 @@ def get_urls_from_tags(tag_list: list[str], num_pages=10) -> list[str]:
     print(get_urls_from_tags(['-tagme', 'virtual_youtuber'])[1])
     """
     tags = "+".join(tag_list)
-    return [SEARCH_URL_TEMPLATE.format(tags=tags, pid=i * 40) for i in range(num_pages)]
+    return [SEARCH_URL_TEMPLATE.format(tags=tags, page=i) for i in range(num_pages)]
 
 
 def get_tags_from_class(soup, tag_class) -> list[str]:
@@ -78,6 +78,7 @@ def get_tags_from_class(soup, tag_class) -> list[str]:
     """
     lists = soup.find_all("li", {"class": tag_class})
     return [li.find("a").text for li in lists]
+
 
 
 def get_url_from_id(id) -> str:

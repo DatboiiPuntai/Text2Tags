@@ -5,6 +5,7 @@ from itertools import chain
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from pprint import pprint
+from typing import Union
 import openai
 
 
@@ -23,7 +24,6 @@ LONG_PROMPT_FORMATS = [
     "Write a complete and objective description for an anime illustration using all the given keywords: {inputs}"
 ]
 
-# To sort pprint(dict(sorted(TAG_TRANSLATION_LOOKUP.items())))
 TAG_TRANSLATION_LOOKUP = {
     "+ +": "plus symbol eyes",
     "+++": "chattering",
@@ -59,29 +59,82 @@ TAG_TRANSLATION_LOOKUP = {
     "| |": "emotionless eyes",
 }
 
-with open(TAG_JSON_DIR, "r") as f:
-    data = json.load(f)
-openai.api_key = OPENAI_API_KEY
+
+def main():
+    with open(TAG_JSON_DIR, "r") as f:
+        data = json.load(f)
+
+    openai.api_key = OPENAI_API_KEY
+    captioned_data = make_data_multithread(data[:5])
+    with open("captioned_data.json", "w") as outfile:
+        json.dump(captioned_data, outfile, indent=4)
 
 
-def replace_tags(data_point):
-    general_tags = data_point["general"]
-    general_tags_translated = [TAG_TRANSLATION_LOOKUP.get(x, x) for x in general_tags]
-    data_point["general"] = sorted(general_tags_translated)
-    return data_point
+def replace_tags(tags: list[str]) -> list[str]:
+    """
+    Given a list of general tags, this function returns a new list of tags where each
+    general tag has been translated using a lookup table. If a tag is not found in the
+    lookup table, it is left unchanged.
+
+    Args:
+        general_tags (List[str]): A list of strings representing general tags.
+
+    Returns:
+        List[str]: A new list of strings where each general tag has been replaced with
+        its translation, if one exists in the lookup table.
+    """
+    tags_translated = [TAG_TRANSLATION_LOOKUP.get(x, x) for x in tags]
+    return tags_translated
 
 
-# print(replace_tags({'general':[';d','^^^','bruh']}))
+# print(replace_tags([';d','^^^','bruh']))
 
 
-def flatten_to_string_input(data_point):
+def flatten_to_string_input(data_point: dict[str, list[str]]) -> str:
+    """
+    Given a dictionary `data_point` containing keys for "copyright",
+    "character", "artist", "general", and "metadata", this function returns
+    a string representation of the values associated with those keys.
+
+    The values are joined together into a single string, with each value separated
+    by a comma and space.
+
+    Args:
+        data_point (Dict[str, List[str]]): A dictionary containing keys for
+        "copyright", "character", "artist", "general", and "metadata".
+
+    Returns:
+        str: A string representation of the values associated with the keys in
+        `data_point`, joined together with a comma and space.
+    """
     keys = ("copyright", "character", "artist", "general", "metadata")
-    return ", ".join(list(chain.from_iterable([data_point[x] for x in keys])))
+    flattened_values = list(chain.from_iterable([data_point[x] for x in keys]))
+    return ", ".join(flattened_values)
 
 
 # print(flatten_to_string_input(data[0]))
 
-def get_prompt(inputs, prompt_format='random'):
+
+def get_prompt(inputs: str, prompt_format: Union[str, int] = "random") -> str:
+    """
+    Given a string `inputs`, this function returns a prompt that can be used to ask a question
+    or solicit additional information about the inputs.
+
+    If the length of `inputs` is greater than 1200, a long prompt format is used. Otherwise,
+    a prompt format is selected based on the `prompt_format` argument.
+
+    Args:
+        inputs (str): A string containing the input data to generate a prompt for.
+        prompt_format (Union[str, int], optional): The format to use for the prompt. Can be
+            one of "random" (default), which selects a random prompt format from `PROMPT_FORMATS`,
+            or an integer index into `PROMPT_FORMATS`, specifying a specific prompt format to use.
+
+    Returns:
+        str: A prompt string generated based on the input `inputs` and the `prompt_format`.
+
+    Raises:
+        IndexError: If `prompt_format` is an integer index that is out of range for `PROMPT_FORMATS`.
+    """
     if len(inputs) > 1200:
         prompt = LONG_PROMPT_FORMATS[0].format(inputs=inputs)
     else:
@@ -91,52 +144,91 @@ def get_prompt(inputs, prompt_format='random'):
             prompt = random.choice(PROMPT_FORMATS).format(inputs=inputs)
     return prompt
 
-def get_caption(data_point, prompt_format='random'):
-    data_point_translated = replace_tags(data_point)
-    inputs = flatten_to_string_input(data_point_translated)
+
+def get_caption(prompt: str) -> str:
+    """
+    Given a prompt string, generates a caption using OpenAI's GPT-3 language model.
+
+    Args:
+        prompt (str): A string prompt to use as input for the GPT-3 model.
+
+    Returns:
+        str: The generated caption string.
+    """
+    messages = [{"role": "user", "content": prompt}]
+    # Use the OpenAI API to generate a response using the messages and other parameters
+    response = openai.ChatCompletion.create(
+        model=MODEL,
+        messages=messages,
+        temperature=TEMPERATURE,
+    )
+    # Get the caption string from the response and return it
+    caption = response["choices"][0]["message"]["content"]
+    return caption
+
+
+def make_data(data_point: dict, prompt_format: str = "random") -> dict:
+    """
+    Given a dictionary `data_point`, generates inputs, prompt, and caption strings using OpenAI's GPT-3 language model.
+
+    Args:
+        data_point (dict): A dictionary containing various keys, including "copyright",
+            "character", "artist", "general", and "metadata", each with a list value.
+            The function uses the "general" list to generate inputs for the GPT-3 model.
+
+        prompt_format (str, optional): The format to use for the prompt. Defaults to "random".
+
+    Returns:
+        dict: A modified version of the `data_point` dictionary with added "inputs", "prompt", and "caption" keys
+            and their corresponding values.
+    """
+    # Create a copy of the data_point dictionary to avoid modifying the original
+    data_point_modified = data_point.copy()
+
+    # Replace general tags in the "general" list using a helper function
+    data_point_modified["general"] = replace_tags(data_point["general"])
+
+    # Flatten the modified data_point dictionary to a string input using a helper function
+    inputs = flatten_to_string_input(data_point_modified)
+
+    # Generate a prompt string using a helper function
     prompt = get_prompt(inputs, prompt_format)
-    print(prompt)
-    print()
-    # messages = [{"role": "user", "content": prompt}]
-    # response = openai.ChatCompletion.create(
-    #     model=MODEL,
-    #     messages=messages,
-    #     temperature=TEMPERATURE,
-    # )
-    # caption = response["choices"][0]["message"]["content"]
-    # return caption
 
+    # Generate a caption string using a helper function
+    caption = get_caption(prompt)
 
-def get_captions_multithread(data):
+    # Add the inputs, prompt, and caption strings to the data_point dictionary
+    data_point["inputs"] = inputs
+    data_point["prompt"] = prompt
+    data_point["caption"] = caption
+
+    # Return the modified data_point dictionary
+    return data_point
+data_point = {
+    "copyright":[],
+    "character": [],
+        "artist": [
+            "ai-wa"
+        ],
+        "general": [
+            "1girl",
+            "pussy",
+            "mosaic censoring",
+            "cowgirl position",
+            "interlocked fingers"
+        ],
+        "metadata": [
+            "absurdres"
+        ],
+}
+print(make_data(data_point))
+
+def make_data_multithread(data):
     threads = min(MAX_THREADS, len(data))
     with ThreadPoolExecutor(max_workers=threads) as executor:
-        captions = executor.map(get_caption, data)
-    return list(captions)
+        captioned_data = executor.map(make_data, data)
+    return list(captioned_data)
 
 
-captions = get_captions_multithread(data[:5])
-
-# # sample 5 captions
-# ["In this high-res artwork from Tokyo Afterschool Summoners, the blackcatlandr master 2 is flanked by a muscular male and a skirt-wearing girl, all with animal ears and horns. With brown hair, forked eyebrows, and glowing fiery horns, the trio's happy aura is palpable as they hug cheek-to-cheek, heads together with a single tear and teardrop. The cow boy with cow ears, cow horns, and eye black also joins in, sporting a goatee and facial hair. The spiky-haired boy in a gakuran and loafers stands nearby, while the simple background and thick eyebrows complete the scene. This image is sure to garner attention with its unique characters and Chinese commentary.", 
-# 'This artwork is an official art featuring three girls from Hololive Indonesia: Anya Melfissa, Kureiji Ollie, and Pavolia Reine. They are all standing and looking at the viewer with smiles on their faces. Anya has long brown hair styled in a flower braid with ankle ribbon and is wearing a blue dress with ankle boots. Kureiji Ollie, with green eyes and purple tongue, has grey hair with streaks and is wearing a two-tone dress with sandals. Pavolia Reine has pink hair styled in looped braids with a blue bow and is wearing a see-through dress with ankle strap and toeless footwear. The artwork has a simple white background and all three girls are wearing white gloves. The tags also mention the presence of ankle strap, ankle ribbon, ankle boots, leg ribbon, and toeless footwear. Additionally, there are some unique features like the diamond-shaped pupils, heterochromia, and x-shaped pupils. There are also some elements indicating that they are virtual YouTubers like the copyright tag, index finger raised, and own hands together. Finally, the tags suggest that there are some stitched body parts like stitched arm, stitched face, and stitched leg, which may indicate that they are zombie characters.', 
-# 'In the scene, a brother and sister duo from the game Fire Emblem Fates, Leo and Camilla, stand on a simple white background, looking straight at the viewer. Camilla, with her long blonde hair, is dressed in a flowing purple dress and wears thigh-highs and high heels. She holds a sword in one hand and a red rose in the other. Her hair drapes over one eye, emphasizing her beauty. Leo, with short red hair, wears traditional Japanese clothes and holds a weapon made of a leaf. A red flower sits in his hair as he stands beside his sister. The high-resolution image captures the intricate details of their outfits and weapons, making it absurdly clear.', 
-# 'In this scene, a blonde-haired girl with blue eyes is sitting in a simple green background. She wears a white sailor dress with blue collar and puffy short sleeves, paired with white thigh-highs. Her fox ears and tail suggest she is a fox girl, and her animal ear fluff adds to her cuteness. She holds a paintbrush and looks at the viewer with one eye closed, her tongue sticking out playfully. Her collarbone is visible and she has a slight blush on her cheeks. The image is framed with a white border with a blue outside border. The artist, Manabe Mana, is credited.', 
-# 'In a wintry landscape, a lone girl clad in armor stands before a group of boys. She wears a breastplate, gloves, and a helmet, with short blonde hair and striking green eyes. The boys surrounding her are also armored, with one identified as Satsuki (Chaosmode). Snowflakes drift down from the sky, settling on the bare trees and waving branches. The girl, identified as Lavian Windslet, gazes directly at the viewer as the scene unfolds. It is unclear what conflict has brought these warriors together, but the tag "Sen no Kiseki: Northern War" suggests a battle of some kind.']
-# sample response
-# response = {
-#     "choices": [
-#         {
-#             "finish_reason": "stop",
-#             "index": 0,
-#             "message": {
-#                 "content": "In this high-resolution image, we see a lone minigirl dressed in a blue pinafore dress displaying an Alice-in-Wonderland theme. The girl, bearing the name 'Alice,' has long blonde hair tied into a bow and worn with a black hairband. She also wears a blue bow on her head and green eyes that match the scenes' grassy background. Alice has on white socks with frilled cuffs that match her sleeveless dress's puffy short sleeves. She also sports wrist cuffs and hair between her eyes, emphasizing her heterochromia. While standing in the grass, Alice can be seen eating and sitting near a mushroom and a snail. With her feet out of the frame and a closed mouth, Alice looks focused, but her eyes give a subtle hint of wonder. Overall, the outfit is completed with frills and a hair bow, making it a perfect depiction of Alice in Wonderla nd.",
-#                 "role": "assistant",
-#             },
-#         }
-#     ],
-#     "created": 1681278502,
-#     "id": "chatcmpl-74Nd8eJxogZfLdzjeAC6H11vXsZun",
-#     "model": "gpt-3.5-turbo-0301",
-#     "object": "chat.completion",
-#     "usage": {"completion_tokens": 188, "prompt_tokens": 188, "total_tokens": 376},
-# }
+# if __name__ == "__main__":
+#     main()
