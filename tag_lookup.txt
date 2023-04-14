@@ -26,6 +26,10 @@ double_v%double_peace_sign_hands
 doyagao%smug
 o_o%surprised_face
 serafuku%sailor_school_uniform
+indian_style%sitting_cross_legged
+seiza%formal_sitting
+wariza%reverse_tailor_style_sitting
+yokozuwari%informal_sitting
 otoko_no_ko%femboy
 t_t%stream_of_tears
 v%peace_sign_hands

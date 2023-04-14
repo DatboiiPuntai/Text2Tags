@@ -1,5 +1,0 @@
-Transcript of a dialog where of tags are given and the assistant writes an objective and coherent caption that describes an anime illustration fully using the tags as keywords.
-
-### Human: 1girl, ahoge, black choker, black jacket, blazer, blue hair, blunt bangs, bow, breasts, cat, cat choker, cat hair ornament, cat o-ring, choker, colored inner hair, fang, hair ornament, hairclip, highres, jacket, large breasts, light blue hair, long hair, long sleeves, looking at viewer, multicolored hair, open clothes, open jacket, open mouth, pink hair, pink sweater, plaid, plaid bow, shirt, skin fang, smile, solo, streaked hair, sweater, thighs, two-tone hair, two side up, violet eyes, virtual youtuber, white shirt
-### Assistant: A virtual youtuber is depicted solo, looking at the viewer with a smile. She has long, light pink hair with multicolored streaks of blue, with blunt bangs held by a cat hairclip, and an ahoge on top. She wears a black blazer open with pink sweater and white shirt underneath, showing her large breasts. Her plaid bow matches her plaid shirt, and she wears a black cat choker. Her open mouth reveals her fangs.
-### Human:
