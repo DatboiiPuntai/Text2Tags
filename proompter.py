@@ -9,22 +9,23 @@ import openai
 
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-TAG_JSON_DIR = r"dataset\tag_data_danbooru_test.json"
+TAG_JSON_DIR = r"dataset\test.json"
 MODEL = "gpt-3.5-turbo"
-TEMPERATURE = 0.7
+TEMPERATURE = 0.6
 MAX_THREADS = 10
 
 PROMPT_FORMATS = [
-    "Write a caption with a highly neutral and objective tone using all the details from these keywords in under 200 words.\n {inputs}",
-    "Write a concise and objective description for an illustration using the given keywords in under 200 words\n {inputs}",
-    "Describe a scene very objectively using these keywords in under 200 words.\n {inputs}",
-]
-LONG_PROMPT_FORMATS = [
-    "Write a complete and objective description for an anime illustration using all the given keywords: {inputs}"
+    "Reply with a complete description of an artworkusing these keywords. Do not infer anything.\n{inputs}",
+    "Using these keywords, reply with a creative and eloquent caption.\n{inputs}",
+    "Reply with a short and summarized description of an artwork based on these keywords. Do not go over 75 words.\n{inputs}",
+    "Reply with only one description that describes subject, action-pose-expression, hair-eyes-dress-accessories, and background in order using these keywords\n{inputs}"
 ]
 
 with open("tag_lookup.txt", "r") as f:
-    TAG_LOOKUP = dict(line.strip().split("|||") for line in f)
+    TAG_LOOKUP = dict(line.strip().split("%") for line in f)
+
+with open(TAG_JSON_DIR, "r") as f:
+    data = json.load(f)
 
 
 def main():
@@ -37,33 +38,37 @@ def main():
     #     json.dump(captioned_data, outfile, indent=4)
 
 
-def replace_tags(tags: list[str]) -> list[str]:
-    tags_translated = [TAG_LOOKUP.get(x, x) for x in tags]
-    return tags_translated
+def replace_general_tags(tags):
+    return ' '.join([TAG_LOOKUP.get(x, x) for x in tags.split(' ')])
 
 
-# print(replace_tags([';d','^^^','bruh']))
+def generate_inputs(data_point) -> str:
+    tag_string_general = replace_general_tags(data_point["tag_string_general"])
+    tag_string_artist = data_point["tag_string_artist"]
+    tag_string_copyright = data_point["tag_string_copyright"]
+    tag_string_character = data_point["tag_string_character"]
+    tag_string_meta = data_point["tag_string_meta"]
 
-
-def generate_inputs(data_point: dict[str, list[str]]) -> str:
-    data_point["general"] = replace_tags(data_point["general"])
-    inputs = ""
-    for k in ("copyright", "character", "artist", "general", "metadata"):
-        tags = data_point[k]
-        if tags: inputs += f"{k}: {', '.join(tags)}\n"
-
-    return inputs
+    return (
+        "artist: " + tag_string_artist + "\n" +
+        "character: " + tag_string_character + "\n" +
+        "copyright: " + tag_string_copyright + "\n" +
+        "general: " + tag_string_general + "\n"
+        + "metadata: " + tag_string_meta + "\n"
+    )
 
 
 def generate_prompt(inputs: str, prompt_format: Union[str, int] = "random") -> str:
-    if len(inputs) > 1200:
-        prompt = LONG_PROMPT_FORMATS[0].format(inputs=inputs)
+
+    if type(prompt_format) != str:
+        prompt = PROMPT_FORMATS[prompt_format].format(inputs=inputs)
     else:
-        if type(prompt_format) != str:
-            prompt = PROMPT_FORMATS[prompt_format].format(inputs=inputs)
-        else:
-            prompt = random.choice(PROMPT_FORMATS).format(inputs=inputs)
+        prompt = random.choice(PROMPT_FORMATS).format(inputs=inputs)
     return prompt
+
+
+inputs = generate_inputs(data[2])
+print(generate_prompt(inputs, 3))
 
 
 def generate_caption(prompt: str) -> str:
@@ -79,18 +84,12 @@ def generate_caption(prompt: str) -> str:
     return caption
 
 
-def make_data(data_point: dict, prompt_format: str = "random") -> dict:
-    # Flatten the modified data_point dictionary to a string input using a helper function
+def make_data(data_point, prompt_format: str = "random") -> dict:
     inputs = generate_inputs(data_point)
-
-    # Generate a prompt string using a helper function
     prompt = generate_prompt(inputs, prompt_format)
-
-    # Generate a caption string using a helper function
     caption = generate_caption(prompt)
 
     # Add the inputs, prompt, and caption strings to the data_point dictionary
-    data_point["inputs"] = inputs
     data_point["prompt"] = prompt
     data_point["caption"] = caption
 

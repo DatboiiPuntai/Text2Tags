@@ -1,35 +1,36 @@
-+ +|||plus symbol eyes,
-+++|||chattering,
-. .|||dot eyes,
-0 0|||surprised face,
-:3|||cat face,
-:<|||sturgeon face,
-:>|||smile,
-:d|||smile,
-:i|||pouting,
-:T|||pouting,
-:o|||open mouth surprised face,
-:||||poker face,
-:/|||ambivalent face,
-;)|||winking closed mouth smile,
-;d|||winking smile,
-;p|||winking tongue out,
-= =|||sleepy bored face,
-> <|||eyes shut gleeful face,
-@ @|||dizzy swirl eyes,
-^ ^|||closed eye smile,
-^^^|||surprise,
-^o^|||open mouth closed eye smile,
-ahoge|||ahoge cowlick,
-bara|||muscular man,
-double v|||double peace sign hands,
-doyagao|||smug,
-o o|||surprised face,
-serafuku|||sailor school uniform,
-t t|||stream of tears,
-v|||peace sign hands,
-xd|||eyes shut laughing,
-yaoi|||gay,
-yuri|||lesbian,
-zettai ryouiki|||skin between skirt and knee socks,
-| ||||emotionless eyes,
++_+%plus_symbol_eyes
++++%chattering
+._.%dot_eyes
+0_0%surprised_face
+:3%cat_face
+:<%sturgeon_face
+:>%smile
+:d%smile
+:i%pouting
+:T%pouting
+:o%open_mouth_surprised_face
+:|%poker_face
+:/%ambivalent_face
+;)%winking_closed_mouth_smile
+;d%winking_smile
+;p%winking_tongue_out
+=_=%sleepy_bored_face
+>_<%eyes_shut_gleeful_face
+@_@%dizzy_swirl_eyes
+^_^%closed_eye_smile
+^^^%surprise
+^o^%open_mouth_closed_eye_smile
+ahoge%ahoge_cowlick
+bara%muscular_man
+double_v%double_peace_sign_hands
+doyagao%smug
+o_o%surprised_face
+serafuku%sailor_school_uniform
+otoko_no_ko%femboy
+t_t%stream_of_tears
+v%peace_sign_hands
+xd%eyes_shut_laughing
+yaoi%gay
+yuri%lesbian
+zettai_ryouiki%skin_between_skirt_and_knee_socks
+|_|%emotionless_eyes
