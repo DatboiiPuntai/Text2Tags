@@ -6,19 +6,18 @@ from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
 import openai
 
-TAG_JSON_DIR = r"dataset\danbooru2021posts.json"
-OUTFILE = r"data_captioned.json"
+DATA_FILE = r"dataset\danbooru2021posts.json"
+OUTPUT_FILE = r"data_captioned.json"
 MODEL = "gpt-3.5-turbo"
 TEMPERATURE = 0.6
-MAX_THREADS = 10
+MAX_THREADS = 12
 BATCH_SIZE = 50
 
 # list of prompt formats to use for generating captions
-PROMPT_FORMATS = [
-    "Reply with a complete description of an artworkusing these keywords. Do not infer anything.\n{inputs}",
-    "Using these keywords, reply with a creative and eloquent caption.\n{inputs}",
-    "Reply with a short and summarized description of an artwork based on these keywords. Do not go over 75 words.\n{inputs}",
-    "Reply with only one description that describes subject, action-pose-expression, hair-eyes-dress-accessories, and background in order using these keywords\n{inputs}",
+PROMPT_TEMPLATES = [
+    "Reply with an eloquent caption based on all the keywords.\n{inputs}",
+    "Reply with a concise description of an artwork based on these keywords. Do not infer anything.\n{inputs}",
+    "Reply with a highly condensed run on sentence that describe subject, action-pose-expression, hair-eyes-dress-accessories, and background in order using these keywords\n{inputs}",
 ]
 
 with open("tag_lookup.txt", "r") as f:
@@ -26,34 +25,46 @@ with open("tag_lookup.txt", "r") as f:
 
 
 def main():
-    with open(TAG_JSON_DIR, "r", encoding="utf-8") as f:
+    with open(DATA_FILE, "r", encoding="utf-8") as f:
         data = json.load(f)
 
     openai.api_key = os.getenv("OPENAI_API_KEY")
 
-    batches = [data[i : i + BATCH_SIZE] for i in range(0, len(data), BATCH_SIZE)]
+    data_with_captions = process_data(data)
 
-    captioned_data = []
+    with open(OUTPUT_FILE, "w") as outfile:
+        json.dump(data_with_captions, outfile, indent=4)
+
+
+def process_data(data):
+    batches = [data[i : i + BATCH_SIZE] for i in range(0, len(data), BATCH_SIZE)]
+    data_with_captions = []
+    num_batch_errors = 0
 
     with tqdm(total=len(batches), desc="Processing batches") as pbar:
         for batch in batches:
             try:
-                captioned_batch = process_batch(batch)
-                captioned_data.extend(captioned_batch)
-                time.sleep(1)
+                batch_with_captions = process_batch(batch)
+                data_with_captions.extend(batch_with_captions)
+                time.sleep(0.5)
                 pbar.update(1)
             except:
+                num_batch_errors += 1
                 print(f"Error processing batch. Moving on to next batch.")
+                if num_batch_errors >= 10:
+                    print(f"Encountered 10 errors. Writing data to file.")
+                    break
 
-    with open(OUTFILE, "w") as outfile:
-        json.dump(captioned_data, outfile, indent=4)
+    return data_with_captions
 
 
 def process_batch(batch):
     threads = min(MAX_THREADS, len(batch))
     with ThreadPoolExecutor(max_workers=threads) as executor:
-        captioned_batch = list(tqdm(executor.map(make_data, batch), total=len(batch)))
-    return captioned_batch
+        batch_with_captions = list(
+            tqdm(executor.map(make_data, batch), total=len(batch))
+        )
+    return batch_with_captions
 
 
 def replace_general_tags(tags):
@@ -61,27 +72,31 @@ def replace_general_tags(tags):
     return " ".join([TAG_LOOKUP.get(x, x) for x in tags.split(" ")])
 
 
-def generate_inputs(data_point) -> str:
+def generate_prompt(data_point, prompt_format) -> str:
     tag_string_general = replace_general_tags(data_point["tag_string_general"])
     tag_string_artist = data_point["tag_string_artist"]
     tag_string_copyright = data_point["tag_string_copyright"]
     tag_string_character = data_point["tag_string_character"]
-    tag_string_meta = data_point["tag_string_meta"]
 
-    return (
-        "artist: " + tag_string_artist + "\n" + 
-        "character: " + tag_string_character + "\n" + 
-        "copyright: " + tag_string_copyright + "\n" + 
-        "general: " + tag_string_general + "\n"
-        # + "metadata: " + tag_string_meta + "\n"
+    inputs = (
+        "artist: "
+        + tag_string_artist
+        + "\n"
+        + "character: "
+        + tag_string_character
+        + "\n"
+        + "from: "
+        + tag_string_copyright
+        + "\n"
+        + "description: "
+        + tag_string_general
     )
 
+    prompt = PROMPT_TEMPLATES[prompt_format].format(inputs=inputs)
 
-def generate_prompt(inputs: str, prompt_format="random") -> str:
-    if type(prompt_format) != str:
-        prompt = PROMPT_FORMATS[prompt_format].format(inputs=inputs)
-    else:
-        prompt = random.choice(PROMPT_FORMATS).format(inputs=inputs)
+    if data_point["rating"] == "e":
+        prompt += "\nUse exact explicit words."
+
     return prompt
 
 
@@ -92,18 +107,27 @@ def generate_caption(prompt: str) -> str:
         messages=messages,
         temperature=TEMPERATURE,
     )
-
     caption = response["choices"][0]["message"]["content"]
     return caption
 
 
-def make_data(data_point, prompt_format="random") -> dict:
-    inputs = generate_inputs(data_point)
-    prompt = generate_prompt(inputs, prompt_format)
-    caption = generate_caption(prompt)
+def make_data(data_point) -> dict:
+    prompt_format_idx = random.randrange(len(PROMPT_TEMPLATES))
+    prompt = generate_prompt(data_point, prompt_format_idx)
+    for i in range(5):
+        try:
+            caption = generate_caption(prompt)
+            break
+        except:
+            print(f"Error generating caption. Trying again ({i+1}/5)")
+            time.sleep(1)
+    else:
+        print("Error generating caption after 5 tries. Returning empty string.")
+        caption = ""
 
-    data_point["prompt"] = prompt
-    data_point["caption"] = caption
+    data_point["prompt_string"] = prompt
+    data_point["prompt_format_id"] = prompt_format_idx
+    data_point["caption_string"] = caption
 
     return data_point
 
