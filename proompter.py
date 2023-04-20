@@ -20,7 +20,7 @@ PROMPT_TEMPLATES = [
     "Reply with a highly condensed run on sentence that describe subject, action-pose-expression, hair-eyes-dress-accessories, and background in order using these keywords\n{inputs}",
 ]
 
-with open("tag_lookup.txt", "r") as f:
+with open(os.path.join('dictionaries', 'tag_translation_lookup.txt'), "r") as f:
     TAG_LOOKUP = dict(line.strip().split("%") for line in f)
 
 
@@ -37,7 +37,8 @@ def main():
 
 
 def process_data(data):
-    batches = [data[i : i + BATCH_SIZE] for i in range(0, len(data), BATCH_SIZE)]
+    batches = [data[i: i + BATCH_SIZE]
+               for i in range(0, len(data), BATCH_SIZE)]
     data_with_captions = []
     num_batch_errors = 0
 
@@ -112,7 +113,7 @@ def generate_caption(prompt: str) -> str:
 
 
 def make_data(data_point) -> dict:
-    prompt_format_idx = random.randrange(1,3)
+    prompt_format_idx = random.randrange(1, 3)
     prompt = generate_prompt(data_point, prompt_format_idx)
     for i in range(5):
         try:

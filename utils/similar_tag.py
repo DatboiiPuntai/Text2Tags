@@ -1,6 +1,6 @@
 import editdistance
-import json
 import re
+import os
 
 
 def correct_tags(tag_string, tag_dictionary):
@@ -32,14 +32,12 @@ def find_closest_tag(tag: str, threshold: int, tag_dictionary: list):
 
 
 def main():
-    with open('tag_dict.json', 'r') as f:
-        tag_dict = json.load(f)
-
-    tag_dictionary = [x['name'] for x in tag_dict]
+    with open(os.path.join('dictionaries', 'tag_dict.txt'), 'r') as f:
+        tag_dict = f.read().splitlines()
 
     tags = '___, bad_id, bad_pixiv_id, bangs, braid, breasts, brown_hair, closed_eyes, commentary_request, eyebrows_visible_through_hair, food, hairband, holding, holding_can, holding_can, hololive, long_hair, minato_aqua_(hololive), multiple_views, open_mouth, pink_hair, pink_shirt, shirt, sitting, solo, standing, twitter_username, twintails, upper_body, white_legwear, white_shirt, yellow_eyes, zettai_ryouiki_kiri, yuri_(yuri-mio)_(kyuu_nyuu)'
     print(tags)
-    print(correct_tags(tags, tag_dictionary))
+    print(correct_tags(tags, tag_dict))
 
 
 if __name__ == '__main__':
