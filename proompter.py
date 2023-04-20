@@ -112,7 +112,7 @@ def generate_caption(prompt: str) -> str:
 
 
 def make_data(data_point) -> dict:
-    prompt_format_idx = random.randrange(len(PROMPT_TEMPLATES))
+    prompt_format_idx = random.randrange(1,3)
     prompt = generate_prompt(data_point, prompt_format_idx)
     for i in range(5):
         try:
