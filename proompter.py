@@ -6,10 +6,10 @@ from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
 import openai
 
-DATA_FILE = r"dataset\danbooru2021posts.json"
-OUTPUT_FILE = r"data_captioned.json"
+DATA_FILE = r"test_data.json"
+OUTPUT_FILE = r"bruh.json"
 MODEL = "gpt-3.5-turbo"
-TEMPERATURE = 0.6
+TEMPERATURE = 0.7
 MAX_THREADS = 12
 BATCH_SIZE = 50
 
@@ -17,7 +17,7 @@ BATCH_SIZE = 50
 PROMPT_TEMPLATES = [
     "Reply with an eloquent caption based on all the keywords.\n{inputs}",
     "Reply with a concise description of an artwork based on these keywords. Do not infer anything.\n{inputs}",
-    "Reply with a highly condensed run on sentence that describe subject, action-pose-expression, hair-eyes-dress-accessories, and background in order using these keywords\n{inputs}",
+    "Reply with a highly condensed sentence that describe subject, action-pose-expression, hair-eyes-dress-accessories, and then everything else using these keywords\n{inputs}",
 ]
 
 with open(os.path.join('dictionaries', 'tag_translation_lookup.txt'), "r") as f:
@@ -113,7 +113,7 @@ def generate_caption(prompt: str) -> str:
 
 
 def make_data(data_point) -> dict:
-    prompt_format_idx = random.randrange(1, 3)
+    prompt_format_idx = random.randrange(0, 3)
     prompt = generate_prompt(data_point, prompt_format_idx)
     for i in range(5):
         try:
