@@ -17,7 +17,7 @@ BATCH_SIZE = 50
 PROMPT_TEMPLATES = [
     "Reply with an eloquent caption based on all the keywords.\n{inputs}",
     "Reply with a concise description of an artwork based on these keywords. Do not infer anything.\n{inputs}",
-    "Reply with a highly condensed sentence that describe subject, action-pose-expression, hair-eyes-dress-accessories, and then everything else using these keywords\n{inputs}",
+    "Reply with a highly condensed sentence that describe subject, action-pose-expression, hair-eyes-clothing, and then everything else using these keywords\n{inputs}",
 ]
 
 with open(os.path.join('dictionaries', 'tag_translation_lookup.txt'), "r") as f:
