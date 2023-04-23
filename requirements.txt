@@ -1,1 +1,12 @@
 editdistance
+accelerate
+appdirs
+loralib
+bitsandbytes; platform_system != "Windows"
+https://github.com/acpopescu/bitsandbytes/releases/download/v0.38.0-win0/bitsandbytes-0.38.1-py3-none-any.whl; platform_system == "Windows"
+git+https://github.com/huggingface/peft.git
+git+https://github.com/huggingface/transformers.git
+datasets
+jupyter
+sentencepiece
+gradio
