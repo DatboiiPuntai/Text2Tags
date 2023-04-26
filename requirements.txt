@@ -1,5 +1,6 @@
 editdistance
 accelerate
+fire
 appdirs
 loralib
 bitsandbytes; platform_system != "Windows"
