@@ -10,4 +10,6 @@ git+https://github.com/huggingface/transformers.git
 datasets
 jupyter
 sentencepiece
+evaluate
+sentence-transformers
 gradio
