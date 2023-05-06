@@ -161,3 +161,4 @@ cython_debug/
 #.idea/
 danbooru2021
 models
+outputs
