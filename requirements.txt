@@ -13,3 +13,5 @@ sentencepiece
 evaluate
 sentence-transformers
 gradio
+llama-cpp-python==0.1.41; platform_system != "Windows"
+https://github.com/abetlen/llama-cpp-python/releases/download/v0.1.41/llama_cpp_python-0.1.41-cp310-cp310-win_amd64.whl; platform_system == "Windows"
